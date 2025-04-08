@@ -123,9 +123,20 @@ class _LocalDataChartScreenState extends State<LocalDataChartScreen> {
   // Add a ScrollController
   final ScrollController _scrollController = ScrollController();
 
+  // Added for date range selection
+  DateTime? _startDate;
+  DateTime? _endDate;
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
+
   @override
   void initState() {
     super.initState();
+    // Set default date range to the last 28 days
+    _endDate = DateTime.now();
+    _endTime = TimeOfDay.now();
+    _startDate = _endDate!.subtract(const Duration(days: 28));
+    _startTime = _endTime;
     _loadChartData();
   }
 
@@ -172,12 +183,49 @@ class _LocalDataChartScreenState extends State<LocalDataChartScreen> {
 
       List<LineChartBarData> lineBarsData = []; // Use a local variable.
 
+      // Filter data based on selected date and time range.
+      List<Map<String, dynamic>> filteredData = rawData;
+      if (_startDate != null) {
+        DateTime startDateTime = _startDate!;
+        if (_startTime != null) {
+          startDateTime = startDateTime.add(Duration(
+            hours: _startTime!.hour,
+            minutes: _startTime!.minute,
+          ));
+        }
+        filteredData = filteredData
+            .where((item) => item['datetime'].isAfter(startDateTime))
+            .toList();
+      }
+      if (_endDate != null) {
+        DateTime endDateTime = _endDate!;
+        if (_endTime != null) {
+          endDateTime = endDateTime.add(Duration(
+            hours: _endTime!.hour,
+            minutes: _endTime!.minute,
+          ));
+        }
+        filteredData = filteredData
+            .where((item) => item['datetime'].isBefore(endDateTime))
+            .toList();
+      }
+
+      if (filteredData.isEmpty) {
+        setState(() {
+          _title = 'No Data Available in Range';
+          _isLoading = false;
+          _seriesData = [];
+        });
+        return;
+      }
+
       for (var columnName in columnNames) {
         final String label =
             widget.headerNameMappings?[columnName] ?? columnName;
         print('_loadChartData: Processing column: $columnName, label: $label');
 
-        List<ChartDataPoint> chartData = rawData.map((item) {
+        List<ChartDataPoint> chartData = filteredData.map((item) {
+          // Use filtered data
           final dataPoint = ChartDataPoint.fromMap(
             map: item,
             columnName: columnName,
@@ -269,6 +317,47 @@ class _LocalDataChartScreenState extends State<LocalDataChartScreen> {
     }
   }
 
+  // --- Date and Time selection methods ---
+  Future<void> _selectStartDate(BuildContext context) async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? DateTime.now().subtract(const Duration(days: 7)),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2025),
+    );
+    if (pickedDate != null) {
+      TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: _startTime ?? TimeOfDay.now(),
+      );
+      setState(() {
+        _startDate = pickedDate;
+        _startTime = pickedTime;
+        _loadChartData(); // Reload data with new date range
+      });
+    }
+  }
+
+  Future<void> _selectEndDate(BuildContext context) async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2025),
+    );
+    if (pickedDate != null) {
+      TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: _endTime ?? TimeOfDay.now(),
+      );
+      setState(() {
+        _endDate = pickedDate;
+        _endTime = pickedTime;
+        _loadChartData(); // Reload data with new date range
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -279,75 +368,122 @@ class _LocalDataChartScreenState extends State<LocalDataChartScreen> {
         padding: const EdgeInsets.all(16.0),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : SizedBox( // Use SizedBox to constrain the chart's size.
-                height: 400,
-                child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Colors.grey[300]!,
-                        width: 2,
+            : Column(
+                children: [
+                  Row(
+                    // Date and Time range selection buttons
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => _selectStartDate(context),
+                        child: Text(_startDate != null
+                            ? "Start: ${DateFormat('yyyy-MM-dd').format(_startDate!)} ${_startTime != null ? DateFormat('HH:mm').format(DateTime(_startDate!.year, _startDate!.month, _startDate!.day, _startTime!.hour, _startTime!.minute)) : ''}"
+                            : "Select Start Date/Time"),
                       ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.grey,
-                          blurRadius: 10,
-                          offset: Offset(3, 3),
-                        ),
-                      ],
-                      color: Colors.white,
-                    ),
-                    child: _seriesData.isNotEmpty
-                        ? LineChart(
-                            key: _chartKey,
-                            LineChartData(
-                              lineBarsData: _seriesData,
-                              minX: _viewportMinX,
-                              maxX: _viewportMaxX,
-                              titlesData: FlTitlesData(
-                                bottomTitles: AxisTitles(
-                                  sideTitles: SideTitles(
-                                    showTitles: true,
-                                    getTitlesWidget:
-                                        (double value, TitleMeta meta) {
-                                      final dateTime =
-                                          DateTime.fromMillisecondsSinceEpoch(
-                                              value.toInt());
-                                      final formattedDate =
-                                          DateFormat('HH:mm:ss').format(dateTime);
-                                      return Text(formattedDate);
-                                    },
-                                  ),
-                                ),
-                                leftTitles: const AxisTitles(
-                                  sideTitles: SideTitles(showTitles: true),
-                                ),
-                              ),
-                              gridData: const FlGridData(show: true),
-                              borderData: FlBorderData(show: true),
-                              lineTouchData: LineTouchData(
-                                enabled: true,
-                                touchCallback: (FlTouchEvent event,
-                                    LineTouchResponse? response) {
-                                  if (response == null ||
-                                      response.lineBarSpots == null) {
-                                    return;
-                                  }
-                                  for (var spot in response.lineBarSpots!) {
-                                    print(
-                                        'Touched spot on line ${spot.barIndex}, x: ${spot.x}, y: ${spot.y}');
-                                  }
-                                },
-                              ),
-                              // Add interactive features
-                              clipData: const FlClipData.horizontal(), // Add this line
-                            ),
-                          )
-                        : const Center(child: Text('No data available')),
+                      ElevatedButton(
+                        onPressed: () => _selectEndDate(context),
+                        child: Text(_endDate != null
+                            ? "End: ${DateFormat('yyyy-MM-dd').format(_endDate!)} ${_endTime != null ? DateFormat('HH:mm').format(DateTime(_endDate!.year, _endDate!.month, _endDate!.day, _endTime!.hour, _endTime!.minute)) : ''}"
+                            : "Select End Date/Time"),
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  //display selected start and end dates
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Text(
+                        'Start: ${_startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : 'Not Selected'}  ${_startTime != null ? DateFormat('HH:mm').format(DateTime(_startDate!.year, _startDate!.month, _startDate!.day, _startTime!.hour, _startTime!.minute)) : ''}',
+                      ),
+                      Text(
+                        'End: ${_endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : 'Not Selected'}  ${_endTime != null ? DateFormat('HH:mm').format(DateTime(_endDate!.year, _endDate!.month, _endDate!.day, _endTime!.hour, _endTime!.minute)) : ''}',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    // Use Expanded to make the chart take up available space
+                    child: SizedBox(
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Colors.grey[300]!,
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.grey,
+                                blurRadius: 10,
+                                offset: Offset(3, 3),
+                              ),
+                            ],
+                            color: Colors.white,
+                          ),
+                          child: _seriesData.isNotEmpty
+                              ? LineChart(
+                                  key: _chartKey,
+                                  LineChartData(
+                                    lineBarsData: _seriesData,
+                                    minX: _viewportMinX,
+                                    maxX: _viewportMaxX,
+                                    titlesData: FlTitlesData(
+                                      bottomTitles: AxisTitles(
+                                        sideTitles: SideTitles(
+                                          showTitles: true,
+                                          getTitlesWidget: (double value,
+                                              TitleMeta meta) {
+                                            final dateTime =
+                                                DateTime.fromMillisecondsSinceEpoch(
+                                                    value.toInt());
+                                            final formattedDate =
+                                                DateFormat('HH:mm:ss')
+                                                    .format(dateTime);
+                                            return Text(formattedDate);
+                                          },
+                                        ),
+                                      ),
+                                      leftTitles: const AxisTitles(
+                                        sideTitles: SideTitles(
+                                            showTitles: true),
+                                      ),
+                                    ),
+                                    gridData: const FlGridData(show: true),
+                                    borderData:
+                                        FlBorderData(show: true),
+                                    lineTouchData: LineTouchData(
+                                      enabled: true,
+                                      touchCallback: (FlTouchEvent event,
+                                          LineTouchResponse? response) {
+                                        if (response == null ||
+                                            response.lineBarSpots == null) {
+                                          return;
+                                        }
+                                        for (var spot
+                                            in response.lineBarSpots!) {
+                                          print(
+                                              'Touched spot on line ${spot.barIndex}, x: ${spot.x}, y: ${spot.y}');
+                                        }
+                                      },
+                                    ),
+                                    // Add interactive features
+                                    //zoomable: true, // Enable zooming
+                                    //panable: true,   // Enable panning
+                                    clipData: const FlClipData.horizontal(),
+                                  ),
+                                  // Add interactive behavior
+                                  
+                                )
+                              : const Center(
+                                  child: Text('No data available')),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
       ),
     );
