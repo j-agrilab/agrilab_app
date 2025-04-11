@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:charts_flutter/flutter.dart' as charts;
-import 'package:flutter/services.dart';
-import 'package:csv/csv.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 import 'dart:io';
+import 'package:csv/csv.dart';
+import 'package:intl/intl.dart'; // Import the intl package
 
 // --- Utility function to parse local CSV data ---
 Future<List<Map<String, dynamic>>> parseLocalCSV(String filePath) async {
@@ -39,9 +39,20 @@ Future<List<Map<String, dynamic>>> parseLocalCSV(String filePath) async {
         //trim added to remove extra spaces
         final headerName = header[j];
         final value = row[j].toString().trim();
-        if (headerName == 'month') {
+         if (headerName == 'month') {
           entry[headerName] = value;
-        } else {
+        } else if (headerName.toLowerCase().contains('date')) {
+          // Parse the date, handling potential errors
+          DateTime? parsedDate = DateTime.tryParse(value);
+          if (parsedDate != null) {
+             entry[headerName] = parsedDate;
+          }
+          else{
+             print('parseLocalCSV: Could not parse date value "$value"');
+             entry[headerName] = null;
+          }
+        }
+         else {
           final intValue = int.tryParse(value);
           if (intValue != null) {
             entry[headerName] = intValue;
@@ -64,19 +75,17 @@ Future<List<Map<String, dynamic>>> parseLocalCSV(String filePath) async {
 }
 
 // --- Data class to hold chart data ---
-class ChartDataPoint { // Renamed from SalesData
-  final String month;
-  final int value; // Renamed from sales
+class ChartDataPoint {
+  final String? month;
+  final int value;
+  final DateTime? date; // Add date field
 
-  ChartDataPoint(this.month, this.value);
+  ChartDataPoint({this.month, required this.value, this.date});
 
-  // Named constructor to create ChartDataPoint from a map
   ChartDataPoint.fromMap(Map<String, dynamic> map)
-      : month = map['month'] ??
-            '', // Provide default values in case of null
-        value = map['sales'] != null // still using sales from the map
-            ? int.parse(map['sales'].toString())
-            : 0;
+      : month = map['month'],
+        value = map['sales'] != null ? int.parse(map['sales'].toString()) : 0,
+        date = map['date'];
 }
 
 // --- Chart widget ---
@@ -84,76 +93,85 @@ class LocalDataChartScreen extends StatefulWidget {
   final String filePath;
   final List<String> columnNames;
 
-  const LocalDataChartScreen({
-    super.key,
-    required this.filePath,
-    required this.columnNames, // Initialize columnNames here
-  });
+  const LocalDataChartScreen(
+      {super.key, required this.filePath, required this.columnNames});
 
   @override
   _LocalDataChartScreenState createState() => _LocalDataChartScreenState();
 }
 
 class _LocalDataChartScreenState extends State<LocalDataChartScreen> {
-  List<charts.Series<ChartDataPoint, String>> _seriesData = []; // Changed type
-  String _title = 'Loading Data...'; // Initial title
+  List<ChartDataPoint> _chartData = [];
+  String _title = 'Loading Data...';
   bool _isLoading = true;
-  //final List<String> columnNames; // Remove this line
-
+  //Track the max and min visible values
+   double _minX = 0;
+  double _maxX = 7;
+  String _dateColumnName = ''; // To store the name of the date column
   @override
   void initState() {
     super.initState();
-    _loadChartData(); // Load data when the widget is initialized
+    _loadChartData();
   }
 
-  // --- Function to load and process data ---
   Future<void> _loadChartData() async {
     try {
-      // 1. Load data from the local CSV file.
       final rawData = await parseLocalCSV(widget.filePath);
+       // Determine the date column name.
+      for (final key in rawData.first.keys) {
+        if (key.toLowerCase().contains('date')) {
+          _dateColumnName = key;
+          break;
+        }
+      }
 
-      // 2. Convert the raw data (List<Map<String, dynamic>>) into a List<ChartDataPoint>
-      final List<ChartDataPoint> chartData = rawData.map((item) { // Changed type
-        //  Error handling during the conversion.
+      // Convert the raw data to ChartDataPoint
+      final List<ChartDataPoint> chartData = rawData.map((item) {
         try {
-          return ChartDataPoint.fromMap(item);
+          return ChartDataPoint(
+            month: item['month'], // Keep month if available
+            value: item['sales'] != null ? int.parse(item['sales'].toString()) : 0,
+            date: item[_dateColumnName], // Use the determined date column
+          );
         } catch (e) {
           print("Error converting map $item to ChartDataPoint: $e");
-          return ChartDataPoint('Error', 0); // Return a default value on error.
+          return ChartDataPoint(month: 'Error', value: 0, date: null);
         }
       }).toList();
 
-      // 3. Create the chart series.
-      _seriesData = [
-        charts.Series<ChartDataPoint, String>( // Changed type
-          id: 'Data', // Changed id
-          data: chartData,
-          domainFn: (ChartDataPoint dataPoint, _) => dataPoint.month, // Changed
-          measureFn: (ChartDataPoint dataPoint, _) => dataPoint.value, // Changed
-          colorFn: (_, index) {
-            if (index! < 3) {
-              return charts.MaterialPalette.blue.shadeDefault;
-            }
-            return charts.MaterialPalette.red.shadeDefault;
-          },
-          labelAccessorFn: (ChartDataPoint dataPoint, _) => '${dataPoint.value}', // Changed
-        ),
-      ];
 
-      // 4. Update the UI.
+      // Filter data for the last two weeks.
+      DateTime now = DateTime.now();
+      DateTime twoWeeksAgo = now.subtract(const Duration(days: 14));
+      List<ChartDataPoint> filteredData = chartData.where((dataPoint) {
+        return dataPoint.date != null &&
+            (dataPoint.date!.isAfter(twoWeeksAgo) ||
+                dataPoint.date!.isAtSameMomentAs(twoWeeksAgo));
+      }).toList();
+
+       if (filteredData.isEmpty) {
+        setState(() {
+          _chartData = [];
+          _title = 'No Data for Last Two Weeks';
+          _isLoading = false;
+        });
+        return;
+      }
+      //set initial visible range
+      _minX = 0;
+      _maxX = filteredData.length > 7 ? 7: filteredData.length.toDouble();
       setState(() {
-        _title = 'Yearly Data'; // Updated title
+        _chartData = filteredData;
+        _title = 'Data for Last Two Weeks';
         _isLoading = false;
       });
     } catch (e) {
-      // Handle errors during data loading.
       print('Error loading or processing data: $e');
       setState(() {
-        _title = 'Error Loading Data'; // Set an error title
+        _title = 'Error Loading Data';
         _isLoading = false;
-        _seriesData = []; //set to empty
+        _chartData = [];
       });
-      // Show error message to the user.
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to load chart data: $e'),
@@ -167,16 +185,16 @@ class _LocalDataChartScreenState extends State<LocalDataChartScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_title), // Use the dynamic title
+        title: Text(_title),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator()) // Show loading indicator
+            ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Container(
-                  //width: MediaQuery.of(context).size.width * 2, // Make it wider than the screen
+                  //width: MediaQuery.of(context).size.width * 2,
                   height: 400,
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -194,75 +212,39 @@ class _LocalDataChartScreenState extends State<LocalDataChartScreen> {
                     ],
                     color: Colors.white,
                   ),
-                  child: _seriesData.isNotEmpty
-                      ? charts.BarChart(
-                          //check if _seriesData is empty
-                          _seriesData,
-                          animate: true,
-                          behaviors: [
-                            charts.ChartTitle(
-                              'Yearly Data', // Updated title
-                              behaviorPosition: charts.BehaviorPosition.top,
-                              titleStyle: const charts.TextStyleSpec(
-                                fontSize: 14,
-                                color: charts.MaterialPalette.black,
-                              ),
-                            ),
-                            charts.PanAndZoom(
-                              allowHorizontal: true,
-                              allowVertical: true,
-                            ),
-                            charts.Legend(
-                              position: charts.BehaviorPosition.bottom,
-                              showMeasures: true,
-                              legendDefaultMeasure:
-                                  charts.LegendDefaultMeasure.sum,
-                              measureFormatter: (num? value) {
-                                return value == null ? '-' : '${value}';
-                              },
-                            ),
-                            charts.DataTable(
-                              showRowSeparator: true,
-                              tableCellPadding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              defaultTextStyle: const TextStyle(fontSize: 10),
-                            ),
-                          ],
-                          domainAxis: const charts.OrdinalAxisSpec(
-                            renderSpec: charts.SmallTickRendererSpec(
-                              labelRotation: 315,
-                              labelStyle: const charts.TextStyleSpec(
-                                fontSize: 12,
-                                color: charts.MaterialPalette.black,
-                              ),
-                            ),
-                          ),
-                          primaryMeasureAxis: const charts.NumericAxisSpec(
-                            tickProviderSpec:
-                                charts.StaticNumericTickProviderSpec(
-                              [
-                                charts.TickSpec(0),
-                                charts.TickSpec(25),
-                                charts.TickSpec(50),
-                                charts.TickSpec(75),
-                                charts.TickSpec(100),
-                                charts.TickSpec(125),
-                              ],
-                            ),
-                            renderSpec: const charts.SmallTickRendererSpec(
-                              labelStyle: const charts.TextStyleSpec(
-                                fontSize: 12,
-                                color: charts.MaterialPalette.black,
-                              ),
-                            ),
-                          ),
-                        )
-                      : const Center(
-                          child: Text('No data available')), //show no data available
+                  child: _chartData.isNotEmpty ? _buildBarChart() : const Center(child: Text('No data available')),
                 ),
               ),
       ),
     );
   }
+
+  Widget _buildBarChart() {
+  return SfCartesianChart(
+    //zoomable and panable
+    zoomPanBehavior: ZoomPanBehavior(
+      enablePinching: true,
+      zoomMode: ZoomMode.x,
+      enablePanning: true,
+    ),
+    primaryXAxis: DateTimeAxis( // Use DateTimeAxis
+      title: AxisTitle(text: 'Date'),
+      minimum: _minX,
+      maximum: _maxX,
+       dateFormat: DateFormat('yyyy-MM-dd'),
+    ),
+    primaryYAxis: NumericAxis(title: AxisTitle(text: 'Value')),
+    series: <CartesianSeries>[
+      ColumnSeries<ChartDataPoint, DateTime>( // Use DateTime
+        dataSource: _chartData,
+        xValueMapper: (ChartDataPoint data, _) => data.date, // Use date from data
+        yValueMapper: (ChartDataPoint data, _) => data.value,
+        dataLabelSettings: const DataLabelSettings(isVisible: true),
+        color: Colors.blue,
+      ),
+    ],
+    title: ChartTitle(text: 'WSWMD Trends 1m'),
+  );
+}
 }
 
