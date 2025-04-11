@@ -36,7 +36,7 @@ class ChartTestScreen extends StatelessWidget {
               MaterialPageRoute(
                 builder: (context) => LocalDataChartScreen(
                   filePath:
-                      'lib/assets/local_data/WSWMD_Trends-1m_Trends_1m__Trends-1m_Trends_1m_250309.csv',
+                      'lib/assets/local_data/bquxjob_45fb5ac2_19622f4d8f5.csv',
                   columnNames: [
                     'tai',
                     'tai_1',
