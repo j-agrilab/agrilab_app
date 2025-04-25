@@ -10,10 +10,12 @@ Future<List<Map<String, dynamic>>> parseLocalCSV(String filePath) async {
     print('parseLocalCSV: Loading CSV file from $filePath');
     // Use rootBundle to load from assets
     final rawData = await rootBundle.loadString(filePath);
-    print('parseLocalCSV: File contents:\n$rawData\nprintedrawdata'); // ADDED: Print raw data
+    //print('parseLocalCSV: File contents:\n$rawData\nprintedrawdata'); // ADDED: Print raw data
 
     final List<List<dynamic>> records =
-        const CsvToListConverter().convert(rawData);
+        const CsvToListConverter(eol: '\n').convert(rawData);
+    
+    print('records: $records');
 
     if (records.isEmpty) {
       print('parseLocalCSV: CSV file is empty');
