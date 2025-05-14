@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:agrilab_app/models/user.dart'; // Import the User model
 import 'package:agrilab_app/utilities/parse_local_csv.dart'; // Import the parseLocalCSV function
 import 'package:agrilab_app/widgets/chart.dart'; // Import the ChartScreen widget
+import 'package:agrilab_app/widgets/multiline_chart.dart';
 //import 'package:agrilab_app/models/chart_data_point.dart'; // Import the ChartDataPoint model // Unused import
 //import 'package:syncfusion_flutter_charts/charts.dart'; // No longer used directly
 //import 'package:intl/intl.dart';  // No longer used directly
@@ -11,7 +12,7 @@ import 'package:agrilab_app/widgets/chart.dart'; // Import the ChartScreen widge
 class HomeScreen extends StatelessWidget {
   final User currentUser; // Receive the user object
 
-  HomeScreen({required this.currentUser});
+  const HomeScreen({super.key, required this.currentUser});
 
   @override
   Widget build(BuildContext context) {
@@ -46,26 +47,8 @@ class HomeScreen extends StatelessWidget {
                 } else if (snapshot.hasData) {
                   // If the data is loaded successfully, pass it to the ChartScreen
                   final rawData = snapshot.data!;
-                  return ChartScreen(
+                  return MultilineChart(
                     rawData: rawData,
-                    columnNames: [
-                      'Date',
-                      'TAI',
-                      'TAI_1',
-                      'TAI_2',
-                      'TAI_3',
-                      'TAI_4',
-                      'DCFM',
-                      'SMOOTHBYFILTER',
-                      'O2',
-                      'TAO',
-                      'TAO_R1',
-                      'TAO_R2',
-                      'TAO_R3',
-                      'TAO_R4',
-                      'TWI',
-                      'TWO'
-                    ],
                     headerNameMappings: {
                       'TAI': 'TAI',
                       'TAI_1': 'TAI_1',
@@ -98,3 +81,4 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
+                                                                    

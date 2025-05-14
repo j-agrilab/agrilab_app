@@ -5,6 +5,8 @@ import 'package:agrilab_app/screens/home.dart';
 
 
 class SplashScreen extends StatelessWidget {
+  const SplashScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     // Wait for 3 seconds and then navigate to the home page

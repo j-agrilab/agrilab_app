@@ -5,6 +5,8 @@ import 'package:agrilab_app/notifiers/user_notifier.dart';
 import 'package:agrilab_app/screens/home.dart';
 
 class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
   @override
   _LoginScreenState createState() => _LoginScreenState();
 }

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:agrilab_app/widgets/chart.dart'; // Import the chart.dart file
-import 'package:csv/csv.dart';
-import 'package:flutter/services.dart';
 import 'package:agrilab_app/utilities/parse_local_csv.dart';
 
 class ChartViewerScreen extends StatefulWidget {
