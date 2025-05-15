@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math';
 import 'package:material_charts/material_charts.dart';
 
 
@@ -22,6 +23,7 @@ class MultilineChart extends StatefulWidget {
 class _MultilineChartState extends State<MultilineChart> {
   List<ChartSeries> _seriesData = [];
   DateTime? _minX, _maxX;
+  double? _minY, _maxY;
   bool _isLoading = true;
   String _title = "Multiline Chart";
 
@@ -43,10 +45,37 @@ class _MultilineChartState extends State<MultilineChart> {
       _minX = rawData.isNotEmpty ? rawData.first['datetime'] : null;
       _maxX = rawData.isNotEmpty ? rawData.last['datetime'] : null;
 
+      _minY = 0;
+      _maxY = 150;
+
       List<ChartSeries> chartSeriesList = [];
       LegendPosition legendPosition = LegendPosition.right;
-
       
+      // Create list of data points
+      for (final column in availableColumnNames) {
+        print("loading column $column");
+        final String label = widget.headerNameMappings?[column] ?? column;
+        List<ChartDataPoint> dataPoints = []; 
+        for (final row in rawData) {
+          final dataPoint = ChartDataPoint(value: row[column], label: row['datetime'].toString());
+          dataPoints.add(dataPoint);
+        }
+        // Turn into ChartSeries and add to data set
+        final ChartSeries chartSeries = ChartSeries(
+          name: column,
+          dataPoints: dataPoints,
+          color: Color.fromRGBO(Random().nextInt(255), Random().nextInt(255), Random().nextInt(255), 1)
+        );
+        print("added chart series");
+        chartSeriesList.add(chartSeries);
+
+      }
+
+      setState(() {
+        _seriesData = chartSeriesList;
+        _isLoading = false;
+      });
+
     
     } catch (e) {
       print('_loadChartData: Error loading or processing data: $e');
@@ -69,11 +98,30 @@ class _MultilineChartState extends State<MultilineChart> {
 
   @override
   Widget build(BuildContext context) {
+    final style = MultiLineChartStyle(
+      backgroundColor: const Color.fromARGB(255, 29, 21, 21),
+      colors: [Colors.blue, Colors.green, Colors.red],
+      smoothLines: true,
+      showPoints: false,
+      animation: const ChartAnimation(
+        duration: Duration(milliseconds: 1000),
+      ),
+      tooltipStyle: const MultiLineTooltipStyle(
+        threshold: 20,
+      ),
+      forceYAxisFromZero: false,
+      crosshair: CrosshairConfig(
+        enabled: true,
+        lineColor: Colors.grey.withOpacity(0.5),
+      ),
+      legendPosition: LegendPosition.right,
+    );
+
     return _isLoading
         ? const Center(child: CircularProgressIndicator())
         : LayoutBuilder(
             builder: (context, constraints) {
-                return Padding(
+              return Padding(
                 padding: const EdgeInsets.all(10),
                 child: SizedBox(
                   width: constraints.maxWidth,
@@ -94,11 +142,21 @@ class _MultilineChartState extends State<MultilineChart> {
                       ],
                       color: Colors.white,
                     ),
+                    child: MultiLineChart(
+                      series: _seriesData,
+                      style: style,
+                      height: 700,
+                      width: 800,
+                      enableZoom: true,
+                      enablePan: true,
+                      
+                    ),
+                    ),
                   ),
-                  child: MultiLineChart  (
-                    series: ,)
+                );
             }
           );
+          
   }
 
 }

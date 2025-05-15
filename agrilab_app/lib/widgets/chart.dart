@@ -3,16 +3,16 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:intl/intl.dart';
 import 'package:agrilab_app/models/chart_data_point.dart';
 
+
+/*
 // --- Chart widget ---
 class ChartScreen extends StatefulWidget {
   final List<Map<String, dynamic>> rawData;
-  final List<String> columnNames;
   final Map<String, String>? headerNameMappings;
 
   const ChartScreen({
     super.key,
     required this.rawData,
-    required this.column
     Names,
     this.headerNameMappings,
   });
@@ -342,3 +342,5 @@ class _ChartScreenState extends State<ChartScreen> {
   }
 
 }
+
+*/

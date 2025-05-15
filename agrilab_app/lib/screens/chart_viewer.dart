@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:agrilab_app/widgets/chart.dart'; // Import the chart.dart file
 import 'package:agrilab_app/utilities/parse_local_csv.dart';
-
+import 'package:agrilab_app/widgets/multiline_chart.dart';
 class ChartViewerScreen extends StatefulWidget {
   final String filePath;
   final List<String> columnNames;
@@ -66,9 +66,8 @@ class _ChartViewerScreenState extends State<ChartViewerScreen> {
             ? const Center(child: CircularProgressIndicator())
             : _errorMessage.isNotEmpty
                 ? Center(child: Text(_errorMessage))
-                : ChartScreen( // Use the ChartScreen widget
+                : MultilineChart( // Use the ChartScreen widget
                     rawData: _chartData,
-                    columnNames: widget.columnNames,
                     headerNameMappings: widget.headerNameMappings,
                   ),
       ),
