@@ -22,6 +22,7 @@ class MultilineChart extends StatefulWidget {
 
 class _MultilineChartState extends State<MultilineChart> {
   List<ChartSeries> _seriesData = [];
+  List<Map<String, dynamic>> _allData = []; 
   DateTime? _minX, _maxX;
   double? _minY, _maxY;
   bool _isLoading = true;
@@ -42,9 +43,17 @@ class _MultilineChartState extends State<MultilineChart> {
           ? rawData.first.keys.where((key) => key != 'datetime').toList()
           : [];
       
-      _minX = rawData.isNotEmpty ? rawData.first['datetime'] : null;
-      _maxX = rawData.isNotEmpty ? rawData.last['datetime'] : null;
+      // 1. Sort the data by datetime to ensure correct order.
+      _allData = List.from(rawData); //copy
+      _allData.sort((a, b) =>
+          (a['datetime'] as DateTime).compareTo(b['datetime'] as DateTime));
+      print("alldata : $_allData");
+      // 2. Find the latest date from the sorted data.
 
+      final DateTime mostRecent = _allData.last['datetime'];
+      final DateTime dayAgo = mostRecent.subtract(Duration(days: 1));
+      _minX = dayAgo;
+      _maxX = mostRecent;
       _minY = 0;
       _maxY = 150;
 
@@ -53,7 +62,7 @@ class _MultilineChartState extends State<MultilineChart> {
       
       // Create list of data points
       for (final column in availableColumnNames) {
-        print("loading column $column");
+        //print("loading column $column");
         final String label = widget.headerNameMappings?[column] ?? column;
         List<ChartDataPoint> dataPoints = []; 
         for (final row in rawData) {
@@ -114,7 +123,8 @@ class _MultilineChartState extends State<MultilineChart> {
         enabled: true,
         lineColor: Colors.grey.withOpacity(0.5),
       ),
-      legendPosition: LegendPosition.right,
+      legendPosition: LegendPosition.bottom,
+      
     );
 
     return _isLoading

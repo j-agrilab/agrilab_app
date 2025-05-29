@@ -41,8 +41,6 @@ Future<List<Map<String, dynamic>>> parseLocalCSV(String filePath) async {
       try {
         // Parse the date using the month-first format "MM-dd-yyyy"
         dateTime = DateFormat("HH:mm:ss MM-dd-yyyy").parse(row[0]);
-        print(
-            'parseLocalCSV: Parsed "$row[0]" as $dateTime using HH:mm:ss MM-dd-yyyy');
       } catch (e) {
         print('parseLocalCSV: Error parsing date: ${row[0]}, error: $e');
         dateTime = null; // Set to null if parsing fails
@@ -67,7 +65,6 @@ Future<List<Map<String, dynamic>>> parseLocalCSV(String filePath) async {
             // Don't add to entry if it can't be parsed.
           }
         }
-        print("parseLocalCSV: adding entry: $entry");
         data.add(entry);
       }
     }
