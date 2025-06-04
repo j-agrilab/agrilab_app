@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:agrilab_app/widgets/chart.dart'; // Import the chart.dart file
+import 'package:agrilab_app/widgets/chart.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter/services.dart';
 import 'package:agrilab_app/utilities/parse_local_csv.dart';
@@ -43,7 +43,7 @@ class _ChartViewerScreenState extends State<ChartViewerScreen> {
       } else {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'No data to display.';
+          _errorMessage = 'No data to display for the last 24 hours.';
           _chartData = [];
         });
       }
@@ -60,20 +60,62 @@ class _ChartViewerScreenState extends State<ChartViewerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chart Viewer'), // A title for the viewer screen
+        title: const Text('Chart Viewer'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              setState(() {
+                _isLoading = true;
+                _errorMessage = '';
+              });
+              _loadData();
+            },
+            tooltip: 'Refresh Data',
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _errorMessage.isNotEmpty
-                ? Center(child: Text(_errorMessage))
-                : ChartScreen( // Use the ChartScreen widget
-                    rawData: _chartData,
-                    columnNames: widget.columnNames,
-                    headerNameMappings: widget.headerNameMappings,
-                  ),
-      ),
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _errorMessage.isNotEmpty
+              ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _errorMessage,
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _isLoading = true;
+                          _errorMessage = '';
+                        });
+                        _loadData();
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              )
+              : Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: ChartScreen(
+                  rawData: _chartData,
+                  columnNames: widget.columnNames,
+                  headerNameMappings: widget.headerNameMappings,
+                ),
+              ),
     );
   }
 }
