@@ -1,85 +1,168 @@
-import 'package:csv/csv.dart';
 import 'package:flutter/services.dart';
+import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
-// Import the ChartDataPoint class
 
-// --- Utility function to parse local CSV data ---
 Future<List<Map<String, dynamic>>> parseLocalCSV(String filePath) async {
   try {
-    print('parseLocalCSV: Loading CSV file from $filePath');
-    // Use rootBundle to load from assets
-    final rawData = await rootBundle.loadString(filePath);
-    //print('parseLocalCSV: File contents:\n$rawData\nprintedrawdata'); // ADDED: Print raw data
+    print('parseLocalCSV: Loading CSV from $filePath');
 
-    final List<List<dynamic>> records =
-        const CsvToListConverter(eol: '\n').convert(rawData);
-    
-    print('records: $records');
+    final String csvString = await rootBundle.loadString(filePath);
+    final List<List<dynamic>> csvData = const CsvToListConverter().convert(
+      csvString,
+    );
 
-    if (records.isEmpty) {
-      print('parseLocalCSV: CSV file is empty');
+    if (csvData.isEmpty) {
+      print('parseLocalCSV: No data found in CSV');
       return [];
     }
 
-    final header = records.first.map((h) => h.toString().toLowerCase()).toList();
-    //  datetime
-    final dateColumnName = header.first;
-    final valueColumnNames = header.sublist(1); // Get all but the first column
-    print('parseLocalCSV: Header: $header');
+    final List<dynamic> headers = csvData[0];
 
-    final List<Map<String, dynamic>> data = [];
+    // DEBUG: Let's see what the headers actually are
+    print('DEBUG CSV: Headers are: $headers');
+    print('DEBUG CSV: Header[0] = ${headers[0]}');
+    if (headers.length > 1) print('DEBUG CSV: Header[1] = ${headers[1]}');
+    if (headers.length > 2) print('DEBUG CSV: Header[2] = ${headers[2]}');
+    if (headers.length > 3) print('DEBUG CSV: Header[3] = ${headers[3]}');
 
-    for (int i = 1; i < records.length; i++) {
-      final row = records[i];
-      if (row.length <= 1) {
-        print(
-            'parseLocalCSV: Skipping row $i because it has less than 2 columns');
-        continue; // Skip rows with no data
-      }
+    List<Map<String, dynamic>> allData = [];
 
-      DateTime? dateTime;
-      try {
-        // Parse the date using the month-first format "MM-dd-yyyy"
-        dateTime = DateFormat("HH:mm:ss MM-dd-yyyy").parse(row[0]);
-      } catch (e) {
-        print('parseLocalCSV: Error parsing date: ${row[0]}, error: $e');
-        dateTime = null; // Set to null if parsing fails
-      }
+    // First, parse all data to find the actual date range
+    for (int i = 1; i < csvData.length; i++) {
+      final List<dynamic> row = csvData[i];
 
-      if (dateTime != null) {
-        // Only include data if the date is valid
-        final entry = <String, dynamic>{};
-        entry['datetime'] = dateTime; // Store parsed DateTime
-        for (int j = 1;
-            j < row.length && j < valueColumnNames.length + 1;
-            j++) {
-          final columnName = valueColumnNames[j - 1];
-          // Important: Convert the row value to the correct type (double, in this case)
-          final value = double.tryParse(row[j]?.toString() ??
-              ''); // Handle null or non-numeric strings
-          if (value != null) {
-            entry[columnName] = value;
-          } else {
-            print(
-                'parseLocalCSV: Warning: Could not parse value "${row[j]}" for column "$columnName" in row $i.  Skipping this value.');
-            // Don't add to entry if it can't be parsed.
-          }
+      if (row.length != headers.length) continue;
+
+      final DateTime? parsedDate = _parseDateTime(row[0].toString());
+      if (parsedDate == null) continue;
+
+      Map<String, dynamic> rowData = {'datetime': parsedDate};
+
+      for (int j = 1; j < headers.length; j++) {
+        final String header = headers[j].toString();
+        // Skip the Date column since we already have datetime
+        if (header == 'Date') continue;
+
+        final dynamic value = row[j];
+
+        // Map DCFM_SMOOTHBYFILTER to just DCFM
+        String finalHeader = header;
+        if (header == 'DCFM_SMOOTHBYFILTER') {
+          finalHeader = 'DCFM';
+          print(
+            'DEBUG: Mapping $header to $finalHeader, value: $value',
+          ); // Add this debug line
         }
-        data.add(entry);
+
+        // Add debug for all headers in first few rows
+        if (i <= 3) {
+          print(
+            'DEBUG: Row $i, header: "$header" -> "$finalHeader", value: $value',
+          );
+        }
+
+        if (value == null || value.toString().isEmpty) {
+          rowData[finalHeader] = 0.0;
+        } else if (value is num) {
+          rowData[finalHeader] = value.toDouble();
+        } else {
+          rowData[finalHeader] = double.tryParse(value.toString()) ?? 0.0;
+        }
       }
+
+      allData.add(rowData);
     }
-    print('parseLocalCSV: Parsed ${data.length} data points');
-    // Print the first 5 rows of data
-    if (data.isNotEmpty) {
-      print('parseLocalCSV: First 5 rows of data:');
-      for (int i = 0; i < (data.length > 5 ? 5 : data.length); i++) {
-        print(data[i]);
-      }
+
+    if (allData.isEmpty) {
+      print('parseLocalCSV: No valid data found');
+      return [];
     }
-    return data;
+
+    // Sort by datetime to ensure chronological order
+    allData.sort(
+      (a, b) =>
+          (a['datetime'] as DateTime).compareTo(b['datetime'] as DateTime),
+    );
+
+    // Find the most recent timestamp in the data
+    final DateTime maxDate = allData.last['datetime'] as DateTime;
+    final DateTime twentyFourHoursAgo = maxDate.subtract(
+      const Duration(hours: 24),
+    );
+
+    print(
+      'parseLocalCSV: Data range: ${allData.first['datetime']} to $maxDate',
+    );
+    print(
+      'parseLocalCSV: Filtering to show data from $twentyFourHoursAgo onwards',
+    );
+
+    // Filter to last 24 hours based on the data's own timeline
+    final List<Map<String, dynamic>> filteredData =
+        allData.where((row) {
+          final DateTime rowDate = row['datetime'] as DateTime;
+          return rowDate.isAfter(twentyFourHoursAgo) ||
+              rowDate.isAtSameMomentAs(twentyFourHoursAgo);
+        }).toList();
+
+    print(
+      'parseLocalCSV: Parsed ${filteredData.length} data points from last 24 hours (out of ${allData.length} total)',
+    );
+    if (filteredData.isNotEmpty) {
+      print(
+        'parseLocalCSV: Filtered range: ${filteredData.first['datetime']} to ${filteredData.last['datetime']}',
+      );
+    }
+
+    return filteredData;
   } catch (e) {
-    print('parseLocalCSV: Error parsing CSV file $filePath: $e');
+    print('parseLocalCSV: Error: $e');
     return [];
   }
+}
 
+// Helper function to parse different datetime formats
+DateTime? _parseDateTime(String dateTimeStr) {
+  // Try different formats based on what I saw in your debug output
+  final List<String> formats = [
+    'HH:mm:ss MM-dd-yyyy', // 23:55:43 03-09-2025
+    'yyyy-MM-dd HH:mm:ss', // 2025-03-09 23:55:43
+    'MM/dd/yyyy HH:mm:ss', // 03/09/2025 23:55:43
+  ];
+
+  for (String format in formats) {
+    try {
+      if (format == 'HH:mm:ss MM-dd-yyyy') {
+        // Custom parsing for your specific format
+        final parts = dateTimeStr.split(' ');
+        if (parts.length == 2) {
+          final timePart = parts[0]; // HH:mm:ss
+          final datePart = parts[1]; // MM-dd-yyyy
+
+          final dateParts = datePart.split('-');
+          final timeParts = timePart.split(':');
+
+          if (dateParts.length == 3 && timeParts.length == 3) {
+            final year = int.parse(dateParts[2]);
+            final month = int.parse(dateParts[0]);
+            final day = int.parse(dateParts[1]);
+            final hour = int.parse(timeParts[0]);
+            final minute = int.parse(timeParts[1]);
+            final second = int.parse(timeParts[2]);
+
+            return DateTime(year, month, day, hour, minute, second);
+          }
+        }
+      } else {
+        // Try using intl DateFormat for other formats
+        final DateFormat formatter = DateFormat(format);
+        return formatter.parse(dateTimeStr);
+      }
+    } catch (e) {
+      // Try next format
+      continue;
+    }
+  }
+
+  return null;
 }
