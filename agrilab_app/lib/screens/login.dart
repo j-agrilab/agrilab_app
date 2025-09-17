@@ -9,13 +9,14 @@ import 'dart:convert';
 
 
 // The GoogleSignIn instance that will handle authentication
+/*
 final GoogleSignIn _googleSignIn = GoogleSignIn(
   scopes: <String>[
     'email',
     'https://www.googleapis.com/auth/cloud-platform',
   ],
 );
-
+*/
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -120,6 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      /*
       final GoogleSignInAccount? googleUser = await _signIn.signIn();
       if (googleUser == null) {
         // The user cancelled the sign-in.
@@ -159,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         // The backend rejected the token or returned an error.
         throw Exception('Backend authentication failed: ${response.body}');
-      }
+      }*/
     } catch (e) {
       print('Sign-in error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
