@@ -44,5 +44,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# node modules
+
+#Node modules
 node_modules/
