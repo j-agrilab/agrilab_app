@@ -1,10 +1,11 @@
+/*
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:intl/intl.dart';
 import 'package:agrilab_app/models/chart_data_point.dart';
 
 
-/*
+
 // --- Chart widget ---
 class ChartScreen extends StatefulWidget {
   final List<Map<String, dynamic>> rawData;
@@ -99,11 +100,6 @@ class _ChartScreenState extends State<ChartScreen> {
       );
       print('DEBUG: Filtered available columns: $availableColumnNames');
 
-      // Use provided column names, or all available if none provided.
-      final List<String> columnNames = widget.columnNames.isNotEmpty
-          ? widget.columnNames
-          : availableColumnNames;
-      print('_loadChartData: Using columns: $columnNames');
       // Use provided column names, or all available if none provided
       final List<String> columnNames =
           widget.columnNames.isNotEmpty
@@ -702,7 +698,7 @@ class _ChartScreenState extends State<ChartScreen> {
 
 }
 
-*/
+
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -761,3 +757,4 @@ class _ChartScreenState extends State<ChartScreen> {
     );
   }
 }
+*/

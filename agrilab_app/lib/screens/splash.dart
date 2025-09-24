@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:agrilab_app/screens/login.dart';
 
-class SplashScreen extends StatelessWidget {
-  const SplashScreen({super.key});
 
 class SplashScreen extends StatefulWidget {
   @override
