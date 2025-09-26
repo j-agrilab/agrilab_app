@@ -1,0 +1,43 @@
+type User @table {
+  email: String!
+  displayName: String!
+  createdAt: Timestamp!
+  photoUrl: String
+}
+
+type CompostSystem @table {
+  name: String!
+  createdAt: Timestamp!
+  status: String!
+  locationDescription: String
+  description: String
+  user: User
+}
+
+type SensorData @table {
+  timestamp: Timestamp!
+  dataType: String!
+  value: Float!
+  unit: String
+  compostSystem: CompostSystem
+}
+
+type ControlSetting @table {
+  settingName: String!
+  valueType: String!
+  currentValue: String!
+  lastUpdated: Timestamp!
+  minValue: Float
+  maxValue: Float
+  unit: String
+  compostSystem: CompostSystem
+}
+
+type Alert @table {
+  timestamp: Timestamp!
+  message: String!
+  alertType: String!
+  isDismissed: Boolean!
+  recommendedAction: String
+  compostSystem: CompostSystem
+}
